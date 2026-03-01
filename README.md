@@ -20,12 +20,15 @@ All these steps are implemented in `app/preprocessing.py` and are automatically 
 
 ---
 
-## Expected Deliverables
+## Deliverables
 
-- **API Endpoint**: `/documents/driver-license/parse` (POST) — Accepts an image and returns extracted fields in JSON.
-- **Standardized JSON Output**: Includes all readable fields (name, DOB, license number, address, expiry, etc.), confidence scores, reliability, and warnings for missing/uncertain fields.
-- **Robust Extraction**: Handles blurry, rotated, multi-language, and damaged licenses.
-- **Field Normalization**: Dates, license numbers, gender, and country codes are normalized for consistency.
+✅ **Working API Endpoint** - FastAPI endpoint `/documents/driver-license/parse` that processes driver license images
+
+✅ **Standard JSON Output Implementation** - Pydantic-validated response with all fields, confidence scores, and warnings
+
+✅ **Baseline Validation Metrics** - Field-level accuracy evaluation with confidence score 
+
+✅ **Technical Documentation** - Complete documentation covering architecture, assumptions, edge cases, and limitations
 
 ---
 
