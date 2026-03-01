@@ -74,40 +74,197 @@ Upload a driver license image and view the extracted data directly in the browse
 
 ---
 
-## Architecture Diagram
+## Architecture Overview
+
+### System Architecture Diagram
 
 ```mermaid
-flowchart TD
-		A[Client Uploads Image] --> B[FastAPI Endpoint]
-		B --> C[Preprocessing (OpenCV)]
-		C --> D[Gemini Vision AI Extraction]
-		D --> E[Pydantic Validation]
-		E --> F[Standardized JSON Response]
+flowchart TB
+    subgraph Client["Client Layer (Port 8090)"]
+        A[Web Browser]
+        B[frontend.html]
+    end
+    
+    subgraph API["API Layer (Port 8000)"]
+        C[FastAPI Server]
+        D[Route Handler]
+    end
+    
+    subgraph Processing["Processing Pipeline"]
+        E[File Validation]
+        F[OpenCV Preprocessing]
+        G[Gemini Vision AI]
+        H[Pydantic Validation]
+    end
+    
+    subgraph OpenCV["OpenCV Steps"]
+        F1[1. Decode Image]
+        F2[2. Deskew/Rotate]
+        F3[3. Denoise]
+        F4[4. CLAHE Enhancement]
+        F5[5. Resize]
+        F6[6. Encode JPEG]
+    end
+    
+    A -->|Upload Image| B
+    B -->|POST Request| C
+    C --> D
+    D --> E
+    E -->|Valid| F
+    F --> F1 --> F2 --> F3 --> F4 --> F5 --> F6
+    F6 -->|Clean Image| G
+    G -->|Extracted Data| H
+    H -->|JSON Response| D
+    D --> B
+    B -->|Display| A
 ```
+
+### Data Flow
+
+```
+User Upload → Frontend (8090) → FastAPI (8000) → File Validation → 
+OpenCV Pipeline (Deskew → Denoise → CLAHE → Resize) → 
+Gemini Vision AI → Pydantic Validation → JSON Response → Display
+```
+
+For detailed architecture documentation, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## Workflow
+## Edge Cases Handled
 
-1. **Image Upload**: User uploads a driver license image via API.
-2. **Preprocessing**: Image is deskewed, denoised, and enhanced using OpenCV.
-3. **AI Extraction**: Cleaned image is sent to Gemini Vision AI, which extracts all readable fields.
-4. **Validation**: Extracted data is validated and normalized using Pydantic schemas.
-5. **Response**: API returns a standardized JSON with all fields, confidence scores, reliability, and warnings.
+The system is designed to handle real-world challenges:
+
+### 1. Image Quality Issues
+- ✅ Blurry or low-resolution images (upscaled to 1024px, CLAHE enhancement)
+- ✅ Noisy images (fastNlMeansDenoisingColored)
+- ✅ Poor contrast (CLAHE on LAB color space)
+
+### 2. Orientation Problems
+- ✅ Rotated images (automatic deskewing with 0.5° threshold)
+- ✅ Skewed images (minAreaRect detection)
+- ✅ Upside-down licenses (AI recognizes inverted text)
+
+### 3. Data Variations
+- ✅ Missing fields (all fields optional, warnings provided)
+- ✅ Different label formats (50+ label variations supported)
+- ✅ Multi-language licenses (Hindi, Tamil, Arabic, French, etc.)
+- ✅ Date format variations (all normalized to YYYY-MM-DD)
+
+### 4. Character Recognition
+- ✅ Character confusion (0 vs O, 1 vs I, 5 vs S, 8 vs B)
+- ✅ Partially damaged text (context-based inference)
+- ✅ Faded or worn licenses (confidence scoring)
+
+### 5. File Handling
+- ✅ Invalid file types (MIME type validation)
+- ✅ Empty files (size validation)
+- ✅ Corrupted images (exception handling with fallback)
+
+### 6. API Failures
+- ✅ Network timeouts (graceful error handling)
+- ✅ Invalid JSON responses (regex-based parsing)
+- ✅ Rate limits (fallback response structure)
+
+### 7. Country-Specific
+- ✅ Different layouts (US, India, UK, Australia)
+- ✅ State variations (50 US states + international)
+- ✅ ISO country codes (auto-detection)
+
+**Confidence & Reliability:**
+- Each field has a confidence score (0.0 to 1.0)
+- Reliability classification (high/low based on 0.7 threshold)
+- Warnings for missing or low-confidence fields
+- No hallucination (fields set to `null` if unreadable)
+
+For complete edge case documentation, see [docs/edge_cases.md](docs/edge_cases.md).
 
 ---
 
 ## File Structure
 
-- `app/preprocessing.py`: Image cleaning pipeline (OpenCV).
-- `app/extractor.py`: Gemini Vision AI prompt and extraction logic.
-- `app/routes.py`: API endpoints.
-- `app/schemas.py`: Pydantic models for response validation.
-- `app/main.py`: FastAPI app setup.
-- `requirements.txt`: Dependencies.
+```
+AI-Based-Driver-License-Data-Extraction-Module/
+├── app/
+│   ├── main.py              # FastAPI app initialization
+│   ├── routes.py            # API endpoint definitions
+│   ├── preprocessing.py     # OpenCV image processing pipeline
+│   ├── extractor.py         # Gemini Vision AI extraction logic
+│   └── schemas.py           # Pydantic validation models
+├── docs/
+│   ├── architecture.md      # Detailed architecture documentation
+│   ├── edge_cases.md        # Comprehensive edge case analysis
+│   ├── assumptions.md       # System assumptions
+│   └── limitations.md       # Current limitations
+├── tests/
+│   ├── test_api.py          # API endpoint tests
+│   ├── test_extractor.py    # Extraction logic tests
+│   ├── test_preprocessing.py # OpenCV pipeline tests
+│   └── test_pipeline.py     # End-to-end integration tests
+├── frontend.html            # Web interface for image upload
+├── requirements.txt         # Python dependencies
+├── .env                     # Environment variables (API keys)
+└── README.md               # This file
+```
+
+---
+
+## OpenCV Processing Pipeline
+
+The preprocessing module (`app/preprocessing.py`) uses the following OpenCV functions:
+
+1. **`cv2.cvtColor`** - Color space conversion (RGB ↔ GRAY ↔ LAB)
+2. **`cv2.threshold`** - Binary thresholding with Otsu's method
+3. **`cv2.minAreaRect`** - Detect rotation angle from text regions
+4. **`cv2.getRotationMatrix2D`** - Create 2D rotation matrix
+5. **`cv2.warpAffine`** - Apply affine transformation (rotation)
+6. **`cv2.fastNlMeansDenoisingColored`** - Remove image noise
+7. **`cv2.createCLAHE`** - Contrast Limited Adaptive Histogram Equalization
+8. **`cv2.resize`** - Upscale low-resolution images
+
+All operations are optimized for text clarity and AI readability.
+
+---
+
+## API Response Format
+
+```json
+{
+  "documentType": "driver_license",
+  "fullName": "John Doe",
+  "licenseNumber": "DL1234567890",
+  "dateOfBirth": "1990-01-15",
+  "issueDate": "2020-01-01",
+  "expiryDate": "2030-01-01",
+  "gender": "M",
+  "address": "123 Main St, City, State, ZIP",
+  "issuingAuthority": "Department of Motor Vehicles",
+  "country": "US",
+  "state": "California",
+  "confidenceScores": {
+    "fullName": 0.95,
+    "licenseNumber": 1.0,
+    "dateOfBirth": 0.92,
+    "issueDate": 0.88,
+    "expiryDate": 0.90,
+    "gender": 1.0,
+    "address": 0.75,
+    "issuingAuthority": 0.85
+  },
+  "warnings": [
+    "address: low confidence 0.75"
+  ]
+}
+```
 
 ---
 
 ## Contact & Support
 
 For issues or feature requests, please open an issue in this repository.
+
+**Documentation:**
+- [Architecture Details](docs/architecture.md)
+- [Edge Cases](docs/edge_cases.md)
+- [Assumptions](docs/assumptions.md)
+- [Limitations](docs/limitations.md)
