@@ -48,12 +48,7 @@ This document describes the current limitations of the Driver License Data Extra
 - **API costs** - Each request consumes API credits
 - **Model availability** - Depends on Google's service uptime
 
-### No Fallback OCR
-- **Single extraction method** - If Gemini fails, extraction fails
-- **No Tesseract fallback** - Cannot use traditional OCR if AI fails
-- **No retry logic** - Failed requests must be manually retried
 
----
 
 ## 4. Accuracy Limitations
 
