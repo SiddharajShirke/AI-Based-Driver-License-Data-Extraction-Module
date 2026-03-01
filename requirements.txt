@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+opencv-python
+Pillow
+google-generativeai
+python-dotenv
+httpx
+pytest
+scikit-learn
+joblib
+numpy
